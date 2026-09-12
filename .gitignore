@@ -1,0 +1,17 @@
+# ignore everything by default, then whitelist project files only
+*
+!.gitignore
+!chip.py
+!chip_web.py
+!chip_ui.html
+!chip_native.cpp
+!build.sh
+!build_rs.sh
+!bench_native.py
+!README.md
+!chip_rs/
+chip_rs/*
+!chip_rs/Cargo.toml
+!chip_rs/src/
+chip_rs/src/*
+!chip_rs/src/lib.rs
