@@ -23,6 +23,14 @@ you choose to send.
 
 - **Live streaming agent loop** — responses and tool activity stream into the
   UI via SSE as they happen.
+- **Memory (optional)** — links to the [CORTEX](https://github.com/jaivardhanpandey66-create/cortex)
+  long-term store: recalls relevant memories each turn, saves every exchange,
+  and offers `recall` / `memorize` tools. Start `cortex_web.py` (port 8200) to
+  enable; CHIP degrades to memory-less automatically otherwise.
+- **Telemetry (optional)** — `system_info` pulls live per-core CPU, memory,
+  swap, disk, network, thermals and GPU from the
+  [STARK](https://github.com/jaivardhanpandey66-create/stark) command center
+  (port 8100) when it is running, falling back to a direct `/proc` read.
 - **PLAN / BUILD modes** — plan mode restricts the agent to read-only tools;
   switch any time with `Tab`.
 - **Tool use** — run commands, read/write/edit files, glob & grep search,
