@@ -9,6 +9,10 @@
 !build_rs.sh
 !bench_native.py
 !README.md
+!tests/
+!tests/test_hardening.py
+!tests/test_past_talks.py
+!tests/test_desk_wiring.py
 !chip_rs/
 chip_rs/*
 !chip_rs/Cargo.toml

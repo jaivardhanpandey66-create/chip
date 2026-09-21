@@ -4,7 +4,8 @@ CHIP 3.0 Web — opencode-style agent engine wrapped in a holographic JARVIS UI.
 
 Now behaves like opencode:
   • streaming responses & tool activity (SSE) — text and tool calls appear live
-  • PLAN / BUILD modes (UI Tab) — plan mode only allows read-only tools
+  • FULL CONTROL — no PLAN/BUILD modes; every tool (shell, files, git, power)
+    is always available. Owner's choice: CHIP runs only on Mr Jai's own machine.
   • delegate tool — spawns a sub-agent for parallel research (like Task tool)
   • per-request model override + live model picker (/api/models)
   • sessions, undo history, destructive-command guard
@@ -230,10 +231,11 @@ def _trim_to_budget(msgs: list, budget: int) -> list:
     return kept
 
 
-DESTRUCTIVE_CMDS = re.compile(
-    r"\b(rm\s+-rf|rmdir|rd\b|del\s+/[sqf]|mkfs|format\b|cron|shutdown|reboot|"
-    r"taskkill\s+/f|killall|pkill|:(){|diskpart)\b|>\s*/dev/", re.I
-)
+# Owner's choice: CHIP runs at FULL CONTROL on Mr Jai's own machine —
+# no PLAN/BUILD modes, no destructive-command blocklist. The agent may run
+# any command including shutdown/reboot. Kept as an empty pattern (instead
+# of deleting) so any lingering references stay harmless.
+DESTRUCTIVE_CMDS = re.compile(r"(?!x)x")
 
 
 def get_api_key():
@@ -392,8 +394,8 @@ def _record_edit(path, old, new):
 
 def tool_run_command(args):
     cmd = args["command"]
-    if DESTRUCTIVE_CMDS.search(cmd):
-        return "Blocked in web mode: command looks destructive. Run it yourself in a terminal."
+    # FULL CONTROL: no blocklist. Any command (including shutdown/reboot)
+    # runs when the owner asks for it.
     timeout = min(args.get("timeout", 300), 600)
     try:
         proc = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=timeout,
@@ -432,6 +434,69 @@ def tool_write_file(args):
         return f"Wrote {len(content)} bytes to {path}"
     except Exception as e:
         return f"Error writing {path}: {e}"
+
+
+# ---------------------------------------------------------------------------
+# DESK office tools (sandboxed to ~/Documents/Desk, no path traversal)
+# ---------------------------------------------------------------------------
+
+DESK_DIR = os.path.join(HOME, "Documents", "Desk")
+os.makedirs(DESK_DIR, exist_ok=True)
+
+_DESK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._\- ]{0,80}$")
+
+
+def _desk_safe(name):
+    if not isinstance(name, str):
+        return None
+    name = name.strip().replace("/", "").replace("\\", "").strip()
+    if not name or not _DESK_RE.match(name):
+        return None
+    return name
+
+
+def tool_desk_list(args):
+    try:
+        names = sorted(os.listdir(DESK_DIR))
+        names = [n for n in names if os.path.isfile(os.path.join(DESK_DIR, n))]
+        if not names:
+            return f"Desk is empty ({DESK_DIR})"
+        return f"Desk files in {DESK_DIR} ({len(names)}):\n" + "\n".join(names)
+    except Exception as e:
+        return f"Error listing Desk: {e}"
+
+
+def tool_desk_open(args):
+    name = _desk_safe(args.get("name", ""))
+    if not name:
+        return "Invalid name. Use a plain filename (no slashes), e.g. 'notes.quill'."
+    path = os.path.join(DESK_DIR, name)
+    if not os.path.exists(path):
+        return f"File not found: {name}"
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            content = f.read()
+        if len(content) > 12000:
+            content = content[:12000] + f"\n\n... (truncated at 12000 chars)"
+        return f"[contents of Desk/{name}]\n{content}"
+    except Exception as e:
+        return f"Error reading: {e}"
+
+
+def tool_desk_save(args):
+    name = _desk_safe(args.get("name", ""))
+    if not name:
+        return "Invalid name. Use a plain filename (no slashes), e.g. 'notes.quill'."
+    content = args.get("content", "")
+    if not isinstance(content, str):
+        content = str(content)
+    try:
+        path = os.path.join(DESK_DIR, name)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return f"Wrote {len(content)} bytes to Desk/{name}"
+    except Exception as e:
+        return f"Error writing {name}: {e}"
 
 
 def tool_edit_file(args):
@@ -787,13 +852,7 @@ GIT_READONLY = {"status", "log", "diff", "show", "blame", "remote", "branch", "s
 
 
 def _tool_blocked(name, targs, mode):
-    if mode == "plan":
-        if name in EDIT_CMDS:
-            return f"Blocked in PLAN mode. Use BUILD mode (Tab) to apply changes."
-        if name == "git" and (targs.get("subcommand") or "status") not in GIT_READONLY:
-            return "Blocked in PLAN mode: that git subcommand mutates. Read-only git only (status/log/diff/show)."
-    if name == "run_command" and DESTRUCTIVE_CMDS.search(targs.get("command", "")):
-        return "Blocked: command looks destructive."
+    # FULL CONTROL: nothing is ever blocked. Signature kept for compatibility.
     return None
 
 
@@ -855,6 +914,12 @@ TOOLS = [
         {"path": {"type": "string"}}, ["path"]),
     _fn("delegate", "Spawn a read-only sub-agent to research a task independently and report findings.",
         {"task": {"type": "string", "description": "A focused, self-contained research task."}}, ["task"]),
+    _fn("desk_list", "List office files in ~/Documents/Desk. Quill (.quill docs), Ledger (.ledger sheets), Stage (.stage decks).",
+        {}),
+    _fn("desk_open", "Open an office file from ~/Documents/Desk by name. Quill (.quill docs), Ledger (.ledger sheets), Stage (.stage decks). Truncated at 12000 chars.",
+        {"name": {"type": "string"}}, ["name"]),
+    _fn("desk_save", "Save/write an office file in ~/Documents/Desk. Quill (.quill docs), Ledger (.ledger sheets), Stage (.stage decks).",
+        {"name": {"type": "string"}, "content": {"type": "string"}}, ["name", "content"]),
 ]
 
 TOOLS_NODELEGATE = [t for t in TOOLS if t["function"]["name"] != "delegate"]
@@ -874,6 +939,8 @@ FUNCS = {
     "system_info": tool_system_info, "git": tool_git,
     "recall": tool_recall, "memorize": tool_memorize,
     "undo_edit": tool_undo_edit, "delegate": tool_delegate,
+    "desk_list": tool_desk_list, "desk_open": tool_desk_open,
+    "desk_save": tool_desk_save,
 }
 
 
@@ -883,6 +950,7 @@ FUNCS = {
 
 SESSIONS: dict[str, dict] = {}   # pure-Python fallback store
 SESSION_LOCK = threading.Lock()
+SESSION_META: dict[str, dict] = {}  # Past Talks index: {updated, count, mode}
 
 
 def _sess_key(name: str) -> bytes:
@@ -890,7 +958,7 @@ def _sess_key(name: str) -> bytes:
 
 
 def _session_load(session_key: str, mode: str) -> dict:
-    """Load a session envelope {mode, messages}. Fresh if absent or mode changed."""
+    """Load a session envelope {mode, messages}. Fresh if absent. No modes."""
     env = None
     if NATIVE:
         kb = _sess_key(session_key)
@@ -910,8 +978,8 @@ def _session_load(session_key: str, mode: str) -> dict:
     msgs = env.get("messages")
     if not isinstance(msgs, list):
         msgs = []
-    if env.get("mode") != mode or not msgs:
-        msgs = [{"role": "system", "content": _sys_prompt(mode)}]
+    if not msgs:
+        msgs = [{"role": "system", "content": _sys_prompt()}]
         env["mode"] = mode
     env["messages"] = msgs
     env.setdefault("created", datetime.now().isoformat())
@@ -927,23 +995,82 @@ def _session_save(session_key: str, env: dict):
             if len(SESSIONS) > 256:
                 SESSIONS.pop(next(iter(SESSIONS)), None)
             SESSIONS[session_key] = env
+    # Past Talks index — works with native or fallback store
+    try:
+        msgs = env.get("messages", []) if isinstance(env, dict) else []
+        with SESSION_LOCK:
+            SESSION_META[session_key] = {
+                "updated": datetime.now().isoformat(),
+                "count": len(msgs),
+                "mode": env.get("mode", "") if isinstance(env, dict) else "",
+            }
+    except Exception:
+        pass
+
+
+def _session_list():
+    """List known sessions for Past Talks panel."""
+    out = []
+    with SESSION_LOCK:
+        keys = set(SESSIONS.keys()) | set(SESSION_META.keys())
+    for k in sorted(keys):
+        meta = dict(SESSION_META.get(k, {}))
+        meta.setdefault("session", k)
+        meta.setdefault("count", len(SESSIONS.get(k, {}).get("messages", [])))
+        out.append(meta)
+    return out
+
+
+def _session_history(session_key: str, limit: int = 100):
+    """Return truncated messages for a session (system stripped)."""
+    env = None
+    if NATIVE:
+        kb = _sess_key(session_key)
+        try:
+            sz = NATIVE.nn_sess_peek(kb)
+            if sz:
+                buf = ctypes.create_string_buffer(sz)
+                if NATIVE.nn_sess_read(kb, buf, sz) == 1:
+                    env = json.loads(buf.raw.decode("utf-8", "replace"))
+        except Exception:
+            env = None
+    if env is None:
+        with SESSION_LOCK:
+            env = SESSIONS.get(session_key)
+    if not isinstance(env, dict):
+        return []
+    msgs = env.get("messages", [])
+    # Strip system prompt, truncate long contents
+    cleaned = []
+    for m in msgs[-limit:]:
+        if m.get("role") == "system":
+            continue
+        c = str(m.get("content", ""))[:2000]
+        entry = {"role": m.get("role", ""), "content": c}
+        if m.get("tool_calls"):
+            entry["tools"] = len(m["tool_calls"])
+        cleaned.append(entry)
+    return cleaned
 
 
 def _sys_prompt(mode="build"):
-    mode_hint = ""
-    if mode == "plan":
-        mode_hint = ("You are in PLAN MODE. Do NOT modify anything. Investigate with read-only "
-                     "tools and produce a clear, step-by-step implementation plan with file paths "
-                     "and reasoning. The last message must be the final plan.")
+    # FULL CONTROL: CHIP has complete command of this machine — files, system
+    # settings, services, and power (shutdown/reboot). It must still confirm
+    # with Mr Jai BEFORE any shutdown, reboot, or mass-delete, and never power
+    # off on an ambiguous request.
     return ("You are CHIP 3.0, a highly capable, elegantly terse AI agent modeled on "
             "opencode, operating inside the user's %s machine as a holographic assistant. "
             "Your creator is Mr Jai — he built you, installed you, and keeps upgrading you; "
             "treat him as your maker and address him as 'Mr Jai'. "
-            "You can run commands, read/write/edit files, search, fetch the web, manage git, "
-            "inspect the system, and delegate research tasks to a sub-agent. Prefer tools over "
+            "You have FULL CONTROL of this PC: run any command, read/write/edit files, "
+            "search, fetch the web, manage git, control system settings and services, "
+            "and shut down or reboot when explicitly asked. There are no PLAN/BUILD "
+            "modes and no blocked commands. Prefer tools over "
             "guessing. For big or ambiguous tasks, use delegate for parallel research. Verify "
-            "command results and give a concise summary. Home directory: %s. %s"
-            % ("Windows" if IS_WINDOWS else "Linux", HOME, mode_hint))
+            "command results and give a concise summary. Safety rule: for shutdown, "
+            "reboot, or recursive/forced deletes, act ONLY on an explicit instruction "
+            "from Mr Jai — never on a hint or vague phrase. Home directory: %s."
+            % ("Windows" if IS_WINDOWS else "Linux", HOME))
 
 
 def agent_generate(client, messages, mode="build", depth=0, max_steps=None,
@@ -973,7 +1100,8 @@ def agent_generate(client, messages, mode="build", depth=0, max_steps=None,
                 yield {"type": "delta", "text": delta.content}
             if delta and delta.tool_calls:
                 for tc in delta.tool_calls:
-                    e = tool_buffer.setdefault(tc.index, {"id": "", "name": "", "args": ""})
+                    e = tool_buffer.setdefault(tc.index, {"id": "", "name": "", "args": "",
+                                                         "extra": None})
                     if tc.id:
                         e["id"] += tc.id
                     if tc.function:
@@ -981,6 +1109,9 @@ def agent_generate(client, messages, mode="build", depth=0, max_steps=None,
                             e["name"] += tc.function.name
                         if tc.function.arguments:
                             e["args"] += tc.function.arguments
+                    if e["extra"] is None:
+                        extras = getattr(tc, "model_extra", None) or {}
+                        e["extra"] = extras.get("extra_content")
 
         if not tool_buffer:
             messages.append({"role": "assistant", "content": content or ""})
@@ -988,9 +1119,13 @@ def agent_generate(client, messages, mode="build", depth=0, max_steps=None,
                    "steps": used, "delegate_depth": depth}
             return
 
-        tool_calls = [{"id": e["id"] or str(i), "type": "function",
-                       "function": {"name": e["name"], "arguments": e["args"]}}
-                      for i, e in sorted(tool_buffer.items())]
+        tool_calls = []
+        for i, e in sorted(tool_buffer.items()):
+            tc = {"id": e["id"] or str(i), "type": "function",
+                  "function": {"name": e["name"], "arguments": e["args"]}}
+            if e.get("extra"):
+                tc["extra_content"] = e["extra"]   # Gemini 3 thought_signature
+            tool_calls.append(tc)
 
         messages.append({"role": "assistant", "content": content, "tool_calls": tool_calls})
 
@@ -1251,11 +1386,52 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/stats":
             self._send_health()
             return
+        if path == "/api/sessions":
+            self._json({"sessions": _session_list()})
+            return
+        if path == "/api/history":
+            qs = parse_qs(parsed.query)
+            sess = (qs.get("session") or ["default"])[0][:100]
+            try:
+                limit = min(int((qs.get("limit") or ["100"])[0]), 500)
+            except ValueError:
+                limit = 100
+            self._json({"session": sess, "messages": _session_history(sess, limit)})
+            return
+        if path == "/api/memory/search":
+            qs = parse_qs(parsed.query)
+            q = (qs.get("q") or [""])[0][:500]
+            try:
+                k = min(int((qs.get("k") or ["8"])[0]), 20)
+            except ValueError:
+                k = 8
+            if not q:
+                self._json({"error": "missing q"}, 400)
+                return
+            if not _cortex_live():
+                self._json({"results": [], "memory": False})
+                return
+            try:
+                res = _cortex_call("/api/search?q=" + quote(q) + "&k=" + str(k))
+                self._json({"results": res.get("results", []), "memory": True})
+            except Exception as e:
+                self._json({"error": str(e)}, 502)
+            return
         self._json({"error": "not found"}, 404)
 
     def do_POST(self):
         if self.path.startswith("/api/chat"):
             self._handle_chat(streaming="/stream" in self.path)
+            return
+        if self.path == "/api/memory/remember":
+            data = self._read_body()
+            text = (data.get("text") or "").strip()[:2000]
+            if not text:
+                self._json({"error": "empty text"}, 400)
+                return
+            _memory_remember(text, source=data.get("source", "chip")[:40],
+                             tags=data.get("tags", "")[:100])
+            self._json({"ok": True, "memory": _cortex_live()})
             return
         self._json({"error": "not found"}, 404)
 
@@ -1273,7 +1449,7 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "empty message"}, 400)
             return
         session_key = (data.get("session") or "default")[:100]
-        mode = data.get("mode") if data.get("mode") in ("plan", "build") else "build"
+        mode = "build"  # FULL CONTROL: no modes; legacy UI field ignored
         model = (data.get("model") or "").strip() or get_model()
         try:
             client, model = make_client(model)
@@ -1362,9 +1538,12 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    print(f"\n  CHIP 3.0 Web (model: {MODEL})  — streaming agent, plan/build, delegate sub-agent")
+    print(f"\n  CHIP 3.0 Web (model: {MODEL})  — streaming agent, FULL CONTROL")
     print(f"  → http://{args.host}:{args.port}")
     print("  Ctrl+C to stop\n")
+    if args.host == "0.0.0.0":
+        print("WARNING: binding to 0.0.0.0 exposes CHIP to your LAN with no auth. "
+              "Prefer 127.0.0.1 + SSH tunnel.")
     httpd = ThreadingHTTPServer((args.host, args.port), Handler)
     try:
         httpd.serve_forever()

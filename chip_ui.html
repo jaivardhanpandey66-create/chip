@@ -370,10 +370,10 @@ body.plan .chat .who{color:var(--amber)}
   </footer>
 </div>
 
-<div class="modebox build" id="modebox" title="Press TAB to toggle">
-  <span class="m-key">TAB</span>
+<div class="modebox build" id="modebox" title="CHIP runs at FULL CONTROL">
+  <span class="m-key">FULL</span>
   <span class="m-dot"></span>
-  <span class="m-state" id="mode-state">BUILD MODE</span>
+  <span class="m-state" id="mode-state">FULL CONTROL</span>
 </div>
 
 <script>
@@ -565,22 +565,8 @@ async function chat(){
   }
 }
 
-/* ---------------- plan / build mode (Tab) ---------------- */
-let mode='build';
-const modeboxEl=document.getElementById('modebox');
-const modeState=document.getElementById('mode-state');
-function setMode(m){
-  mode=m;modeboxEl.className='modebox '+m;
-  modeState.textContent=(m==='plan'?'PLAN MODE':'BUILD MODE');
-  document.body.classList.toggle('plan',m==='plan');
-  coreState.textContent=m==='plan'?'PLANNING':'ONLINE';
-}
-addEventListener('keydown',e=>{
-  if(e.key==='Tab'&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey&&!e.altKey){
-    e.preventDefault();setMode(mode==='plan'?'build':'plan');
-  }
-});
-modeboxEl.addEventListener('click',()=>setMode(mode==='plan'?'build':'plan'));
+/* ---------------- full control (no modes) ---------------- */
+let mode='build'; // legacy field; server ignores it — CHIP always has full control
 
 /* ---------------- model picker ---------------- */
 const modelSel=document.getElementById('model-sel');
@@ -736,6 +722,69 @@ function speak(text){
   const c=welcome.querySelector('.caret');if(c)c.remove();
   input.focus();
 })();
+</script>
+
+<details style="position:fixed;left:12px;bottom:12px;z-index:6;max-width:340px;background:rgba(4,12,28,.9);border:1px solid rgba(0,247,255,.28);color:#cfe9ff;font-size:12px;padding:8px 10px;">
+<summary style="cursor:pointer;">Past Talks</summary>
+<div style="margin-top:8px;display:grid;gap:6px;">
+<div><select id="pastSessions" onchange="pastLoad()" style="max-width:200px;"></select> <button onclick="pastRefresh()">Refresh</button></div>
+<div id="pastHistory" style="max-height:160px;overflow:auto;white-space:pre-wrap;"></div>
+<div><input id="memQ" placeholder="memory search..." style="width:180px;"> <button onclick="memSearch()">Search</button></div>
+<div id="memResults" style="max-height:120px;overflow:auto;white-space:pre-wrap;"></div>
+</div>
+</details>
+<script>
+async function pastRefresh(){
+  try{
+    const r=await fetch('/api/sessions');
+    const d=await r.json();
+    const list=d.sessions||d.data||d||[];
+    const sel=document.getElementById('pastSessions');
+    sel.innerHTML='';
+    (Array.isArray(list)?list:[]).forEach(s=>{
+      const v=typeof s==='string'?s:(s.session||s.id||s.name||JSON.stringify(s));
+      const o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o);
+    });
+    const cur=localStorage.getItem('chip_session');
+    if(cur)sel.value=cur;
+  }catch(e){}
+}
+async function pastLoad(){
+  const sel=document.getElementById('pastSessions');
+  const s=sel?sel.value:localStorage.getItem('chip_session');
+  if(!s)return;
+  localStorage.setItem('chip_session',s);
+  try{session=s;}catch(e){}
+  try{if(typeof drawTele==='function')drawTele(s);}catch(e){}
+  try{
+    const r=await fetch('/api/history?session='+encodeURIComponent(s)+'&limit=50');
+    const d=await r.json();
+    const items=d.history||d.messages||d.data||d||[];
+    const box=document.getElementById('pastHistory');
+    box.textContent='';
+    (Array.isArray(items)?items:[]).forEach(m=>{
+      const div=document.createElement('div');
+      div.textContent=(m.role||m.who||'')+': '+(m.text||m.content||m.message||JSON.stringify(m));
+      box.appendChild(div);
+    });
+  }catch(e){}
+}
+async function memSearch(){
+  const q=document.getElementById('memQ').value||'';
+  try{
+    const r=await fetch('/api/memory/search?q='+encodeURIComponent(q)+'&k=8');
+    const d=await r.json();
+    const items=d.results||d.matches||d.data||d||[];
+    const box=document.getElementById('memResults');
+    box.textContent='';
+    (Array.isArray(items)?items:[]).forEach(m=>{
+      const div=document.createElement('div');
+      div.textContent=(m.text||m.content||m.snippet||JSON.stringify(m));
+      box.appendChild(div);
+    });
+  }catch(e){}
+}
+pastRefresh();
 </script>
 </body>
 </html>
