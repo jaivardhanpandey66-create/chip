@@ -314,6 +314,18 @@ body.plan .chat .who{color:var(--amber)}
 .proj-card li::before{content:"▸ ";color:var(--cyan-dim)}
 .proj-card.mark li::before{color:var(--amber)}
 .proj-card a{color:var(--cyan);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--cyan)}
+.dl-btn{
+  display:block;margin-top:12px;padding:11px 13px;text-align:center;
+  font-family:var(--font-display);font-size:11px;letter-spacing:3px;color:#07131c;
+  background:linear-gradient(180deg,#ffb45a,#ff7a18);border:0;text-decoration:none;
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+  box-shadow:0 0 18px rgba(255,122,24,.35);transition:filter .15s,transform .15s;
+}
+.dl-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.dl-btn span{
+  display:block;margin-top:4px;font-family:var(--font-mono);font-size:9px;
+  letter-spacing:1.5px;opacity:.72;
+}
 .proj-card .tagline{font-size:10px;letter-spacing:2px;color:rgba(207,233,255,.5);margin-bottom:6px;text-transform:uppercase}
 @media (max-width:640px){ .proj-card{grid-template-columns:1fr} }
 #proj-close{position:absolute;top:0;right:0;padding:14px 18px;font-size:16px}
@@ -438,6 +450,7 @@ body.plan .chat .who{color:var(--amber)}
         <div class="tagline">other project</div>
         <h3>MARK LVI</h3>
         <a href="https://github.com/jaivardhanpandey66-create/mark-liv" target="_blank" rel="noopener">github.com/jaivardhanpandey66-create/mark-liv</a>
+        <a class="dl-btn" id="dl-apk" href="https://github.com/jaivardhanpandey66-create/mark-liv/releases/download/v1.0.0/MARK-LIV-20260927-offline.apk" target="_blank" rel="noopener">⬇ DOWNLOAD ANDROID APK<span>482 MB &middot; offline &middot; no API key</span></a>
       </div>
       <ul>
         <li>PyQt6 desktop build on the Gemini Live backend</li>
