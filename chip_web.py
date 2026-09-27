@@ -67,6 +67,7 @@ MAX_DELEGATE_DEPTH = 2
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(HERE, "chip_ui.html")
+BRAIN_PATH = os.path.join(HERE, "offline_brain.js")
 
 
 # ---------------------------------------------------------------------------
@@ -1254,6 +1255,13 @@ def _html():
     return "<h1>chip_ui.html not found next to chip_web.py</h1>"
 
 
+def _brain():
+    if os.path.exists(BRAIN_PATH):
+        with open(BRAIN_PATH, encoding="utf-8") as f:
+            return f.read()
+    return "/* offline_brain.js not found next to chip_web.py */"
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -1340,6 +1348,15 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if path in ("/offline_brain.js", "/offline_brain"):
+            body = _brain().encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(body)
             return

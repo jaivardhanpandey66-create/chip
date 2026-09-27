@@ -283,6 +283,40 @@ body.plan .chat .who{color:var(--amber)}
   .orb-wrap{flex:0 0 auto;transform:scale(.72)}
   .gauges{display:none}
 }
+
+/* ---------- projects overlay ---------- */
+#proj-overlay{
+  position:fixed;inset:0;z-index:20;display:none;place-items:center;
+  background:rgba(1,3,10,.86);backdrop-filter:blur(3px);padding:20px;
+}
+#proj-overlay.open{display:grid}
+.proj-sheet{
+  width:min(860px,100%);max-height:82vh;overflow:auto;padding:22px 24px;
+  background:linear-gradient(160deg, rgba(0,140,190,.12), rgba(6,18,36,.94) 60%);
+  border:1px solid var(--line);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);
+  box-shadow:0 0 40px rgba(0,247,255,.12) inset;
+}
+.proj-sheet h2{
+  font-family:var(--font-display);font-size:13px;letter-spacing:6px;color:var(--cyan);
+  text-transform:uppercase;margin-bottom:4px;text-shadow:0 0 10px rgba(0,247,255,.7);
+}
+.proj-sheet .hint{font-size:10px;letter-spacing:2px;color:rgba(207,233,255,.45);margin-bottom:16px}
+.proj-card{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;
+  padding:14px;border:1px solid rgba(0,247,255,.18);background:rgba(4,12,28,.55);
+}
+.proj-card.self{border-color:rgba(0,247,255,.42);box-shadow:0 0 18px rgba(0,247,255,.08) inset}
+.proj-card h3{font-family:var(--font-display);font-size:12px;letter-spacing:4px;margin-bottom:8px}
+.proj-card.chip h3{color:var(--cyan)}
+.proj-card.mark h3{color:var(--amber)}
+.proj-card ul{list-style:none;font-size:11px;line-height:1.7;color:rgba(207,233,255,.8)}
+.proj-card li::before{content:"▸ ";color:var(--cyan-dim)}
+.proj-card.mark li::before{color:var(--amber)}
+.proj-card a{color:var(--cyan);font-size:11px;text-decoration:none;border-bottom:1px dotted var(--cyan)}
+.proj-card .tagline{font-size:10px;letter-spacing:2px;color:rgba(207,233,255,.5);margin-bottom:6px;text-transform:uppercase}
+@media (max-width:640px){ .proj-card{grid-template-columns:1fr} }
+#proj-close{position:absolute;top:0;right:0;padding:14px 18px;font-size:16px}
 </style>
 </head>
 <body>
@@ -300,10 +334,11 @@ body.plan .chat .who{color:var(--amber)}
       <span class="sub">// J.A.R.V.I.S. interface // online</span>
     </div>
     <div class="statusline">
-      <span><b>&#9679;</b>&nbsp;LINK ESTABLISHED</span>
+      <span><b>&#9679;</b>&nbsp;<span id="link-state">LINK ESTABLISHED</span></span>
       <span class="badge" id="badge-mem" data-ok="0">MEM <em>OFF</em></span>
       <span class="badge" id="badge-tel" data-ok="0">TEL <em>OFF</em></span>
-      <span>MODEL <select id="model-sel"><option>…</option></select></span>
+      <span id="model-wrap">MODEL <select id="model-sel"><option>…</option></select></span>
+      <button id="btn-projects" class="sec-btn" title="Project index">PROJECTS</button>
       <span id="clock">--:--:--</span>
     </div>
   </header>
@@ -376,6 +411,51 @@ body.plan .chat .who{color:var(--amber)}
   <span class="m-state" id="mode-state">FULL CONTROL</span>
 </div>
 
+<div id="proj-overlay">
+  <div class="proj-sheet">
+    <button class="sec-btn" id="proj-close">&#10005;</button>
+    <h2>Project index</h2>
+    <div class="hint">both projects by Mr Jai &mdash; jai</div>
+
+    <div class="proj-card self chip">
+      <div>
+        <div class="tagline">this interface</div>
+        <h3>CHIP</h3>
+        <a href="https://github.com/jaivardhanpandey66-create/chip" target="_blank" rel="noopener">github.com/jaivardhanpandey66-create/chip</a>
+      </div>
+      <ul>
+        <li>Holographic J.A.R.V.I.S. agent, opencode-style tool engine</li>
+        <li>Native Rust + C cores (nn_sse_frame, cache + session stats)</li>
+        <li>SSE streaming chat, tool calling, full-control mode</li>
+        <li>CORTEX memory recall + auto-memory, STARK telemetry</li>
+        <li>Web UI &middot; Linux WebKitGTK app &middot; Android APK</li>
+        <li>Built-in offline brain: no API key needed</li>
+      </ul>
+    </div>
+
+    <div class="proj-card mark">
+      <div>
+        <div class="tagline">other project</div>
+        <h3>MARK LVI</h3>
+        <a href="https://github.com/jaivardhanpandey66-create/mark-liv" target="_blank" rel="noopener">github.com/jaivardhanpandey66-create/mark-liv</a>
+      </div>
+      <ul>
+        <li>PyQt6 desktop build on the Gemini Live backend</li>
+        <li>Graphite / orange reactor interface</li>
+        <li>Gemini Live voice + text sessions</li>
+        <li>Screen and camera vision</li>
+        <li>Long-term memory panel, audio device selection</li>
+        <li>Push-to-talk + local wake-word</li>
+        <li>Confirmation gates, quizzes, reviews</li>
+        <li>Remote dashboard pairing, skill/plugin forms</li>
+        <li>Drag-and-drop file attachment</li>
+        <li>Now also ships as an offline Android app with a local Qwen brain</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script src="offline_brain.js"></script>
 <script>
 /* ---------------- background: holo hex field + particles ---------------- */
 const cv=document.getElementById('hud-canvas'),g=cv.getContext('2d');
@@ -495,6 +575,71 @@ function addStep(step,i){
 
 let busy=false;
 let curBotBody=null;
+let offlineMode=false;   // no server reachable -> use the built-in brain
+
+/* ---------------- projects overlay ---------------- */
+(function(){
+  const ov=document.getElementById('proj-overlay');
+  const open=()=>ov.classList.add('open');
+  const close=()=>ov.classList.remove('open');
+  document.getElementById('btn-projects').addEventListener('click',open);
+  document.getElementById('proj-close').addEventListener('click',close);
+  ov.addEventListener('click',e=>{if(e.target===ov)close();});
+  addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+  CHIPProjects={open,close};
+})();
+
+/* ---------------- offline brain routing ---------------- */
+async function offlineAnswer(text){
+  if(!curBotBody)return;
+  const c=curBotBody.querySelector('.caret');if(c)c.remove();
+  let out=offlineReply(text);
+  if(out===null){
+    out=window.CHIPBrain
+      ? (CHIPBrain.ask(text).text||'Offline core, sir — say "help" for the command list.')
+      : 'Offline brain not loaded (offline_brain.js missing), sir.';
+  }
+  curBotBody.textContent='';
+  await typeInto(curBotBody,out);
+  speak(out);
+  addStep({name:'offline_brain',result:out.slice(0,400),args:{mode:'offline'}},++stepN);
+}
+function setOffline(on,why){
+  offlineMode=on;
+  const ls=document.getElementById('link-state');
+  if(ls)ls.textContent=on?'OFFLINE CORE':'LINK ESTABLISHED';
+  const mw=document.getElementById('model-wrap');
+  if(mw)mw.style.display=on?'none':'';
+  const sub=document.querySelector('.brand .sub');
+  if(sub)sub.textContent=on?'// offline core // no uplink':'// J.A.R.V.I.S. interface // online';
+  const cs=document.getElementById('core-state');
+  if(cs)cs.textContent=on?'OFFLINE':'ONLINE';
+  if(on&&why)flash(why);
+}
+function offlineReply(text){
+  if(!window.CHIPBrain)return null;
+  let r;
+  try{r=CHIPBrain.ask(text);}catch(e){return null;}
+  if(!r)return null;
+  if(r.action==='clear'){document.getElementById('feed').innerHTML='';return 'Conversation cleared, sir.';}
+  if(r.action==='timer'){startChipTimer(r.seconds,r.label);
+    return 'Timer set: '+r.label+' in '+r.seconds+' seconds.';}
+  if(r.action==='timer-stop'){clearInterval(chipTimer);return 'Timer stopped, sir.';}
+  if(r.skill&&r.skill!=='fallback'&&r.text)return r.text;
+  return null;   // let the caller decide (offline fallback text)
+}
+let chipTimer=null;
+function startChipTimer(secs,label){
+  clearInterval(chipTimer);
+  const end=Date.now()+secs*1000;
+  const cs=document.getElementById('core-state');
+  chipTimer=setInterval(()=>{
+    const left=Math.max(0,Math.round((end-Date.now())/1000));
+    if(cs)cs.textContent='TIMER '+left+'s';
+    if(left<=0){clearInterval(chipTimer);if(cs)cs.textContent=offlineMode?'OFFLINE':'ONLINE';
+      speak('Timer finished: '+label);}
+  },250);
+}
 
 function handleEvent(kind,data){
   if(kind==='meta'){
@@ -530,7 +675,15 @@ async function chat(){
   curBotBody.classList.remove('typing');
   const caret=document.createElement('span');caret.className='caret';caret.textContent='▍';
   curBotBody.appendChild(caret);
+  if(offlineMode){
+    await offlineAnswer(msg);
+    busy=false;sendBtn.disabled=false;sendBtn.classList.remove('sending');
+    sendBtn.textContent='▶ send';arc.classList.remove('sending');
+    coreState.textContent='OFFLINE';input.focus();
+    return;
+  }
   try{
+    if(offlineMode)throw new Error('offline core');
     const res=await fetch('/api/chat/stream',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -557,7 +710,16 @@ async function chat(){
   }catch(errMsg){
     curBotBody.parentElement.classList.remove('typing');
     curBotBody.innerHTML='';
-    curBotBody.textContent='⚠ '+errMsg;
+    const msg=String(errMsg&&errMsg.message||errMsg);
+    if(/offline core|Failed to fetch|NetworkError|load failed/i.test(msg)){
+      setOffline(true,'no uplink — offline core engaged');
+      curBotBody.textContent='⚠ uplink unavailable, sir. Switching to the built-in offline brain.';
+      busy=false;sendBtn.disabled=false;sendBtn.classList.remove('sending');
+      sendBtn.textContent='▶ send';arc.classList.remove('sending');
+      coreState.textContent='OFFLINE';input.focus();
+      return;
+    }
+    curBotBody.textContent='⚠ '+msg;
   }finally{
     busy=false;sendBtn.disabled=false;sendBtn.classList.remove('sending');
     sendBtn.textContent='▶ send';arc.classList.remove('sending');
@@ -712,12 +874,17 @@ function speak(text){
   await new Promise(r=>setTimeout(r,400));
   coreState.textContent='LOADING TOOLS';
   await new Promise(r=>setTimeout(r,400));
-  coreState.textContent='ONLINE';
+  let serverLive=true;
+  try{const r=await fetch('/api/stats',{cache:'no-store'});serverLive=r.ok;}catch(e){serverLive=false;}
+  setOffline(!serverLive,!serverLive?'no server — offline core engaged':null);
+  coreState.textContent=serverLive?'ONLINE':'OFFLINE';
   await new Promise(r=>setTimeout(r,350));
   const welcome=addMsg('bot','');
   const caret=document.createElement('span');caret.className='caret';caret.textContent='▍';
   welcome.appendChild(caret);
-  const t='Welcome back, sir. CHIP arc reactor operational — all systems nominal. How may I assist you?';
+  const t=serverLive
+    ? 'Welcome back, sir. CHIP arc reactor operational — all systems nominal. How may I assist you?'
+    : 'Welcome back, sir. No uplink here, so I am running on the built-in offline brain — no API key, no network. Say "help" for the command list, or "projects" to see what we are building.';
   for(const ch of t){welcome.appendChild(document.createTextNode(ch));await new Promise(r=>setTimeout(r,14));}
   const c=welcome.querySelector('.caret');if(c)c.remove();
   input.focus();

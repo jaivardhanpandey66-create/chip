@@ -4,6 +4,7 @@
 !chip.py
 !chip_web.py
 !chip_ui.html
+!offline_brain.js
 !chip_native.cpp
 !build.sh
 !build_rs.sh
