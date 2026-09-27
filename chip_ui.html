@@ -697,7 +697,7 @@ async function chat(){
   }
   try{
     if(offlineMode)throw new Error('offline core');
-    const res=await fetch('/api/chat/stream',{
+    const res=await fetch('api/chat/stream',{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         message:msg,session,mode,
@@ -748,7 +748,7 @@ const modelSel=document.getElementById('model-sel');
 (async function loadModels(){
   try{
     const res=await fetch('/api/models');
-    const data=await res.json();
+    const data=res.ok?await res.json():{models:[]};
     const saved=localStorage.getItem('chip_model');
     const list=data.models||[];
     modelSel.innerHTML='';
@@ -917,7 +917,7 @@ function speak(text){
 async function pastRefresh(){
   try{
     const r=await fetch('/api/sessions');
-    const d=await r.json();
+    const d=r.ok?await r.json():{};
     const list=d.sessions||d.data||d||[];
     const sel=document.getElementById('pastSessions');
     sel.innerHTML='';
@@ -938,7 +938,7 @@ async function pastLoad(){
   try{if(typeof drawTele==='function')drawTele(s);}catch(e){}
   try{
     const r=await fetch('/api/history?session='+encodeURIComponent(s)+'&limit=50');
-    const d=await r.json();
+    const d=r.ok?await r.json():{};
     const items=d.history||d.messages||d.data||d||[];
     const box=document.getElementById('pastHistory');
     box.textContent='';
@@ -952,8 +952,8 @@ async function pastLoad(){
 async function memSearch(){
   const q=document.getElementById('memQ').value||'';
   try{
-    const r=await fetch('/api/memory/search?q='+encodeURIComponent(q)+'&k=8');
-    const d=await r.json();
+    const r=await fetch('api/memory/search?q='+encodeURIComponent(q)+'&k=8');
+    const d=r.ok?await r.json():{};
     const items=d.results||d.matches||d.data||d||[];
     const box=document.getElementById('memResults');
     box.textContent='';

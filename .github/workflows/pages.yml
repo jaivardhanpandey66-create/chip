@@ -1,0 +1,43 @@
+name: Deploy CHIP site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Single source of truth: chip_ui.html is the site, chip_web.py is the
+      # local server that also talks to the model. Pages only gets the static
+      # part, so the UI boots into offline mode and answers from
+      # offline_brain.js until you run it locally with: python3 chip_web.py
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          cp chip_ui.html _site/index.html
+          cp offline_brain.js _site/offline_brain.js
+
+      - name: Publish
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+          retention-days: 1
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
